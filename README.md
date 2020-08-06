@@ -1,9 +1,11 @@
-# odoo-rpc-api
+# odoo_rpc_api
 Simple Odoo xmlrpc library
 
 If you're looking for something that's more abstracted, checkout the [odoo_rpc_client](https://pypi.org/project/odoo-rpc-client/) library.
 
 This library was built so that the developer is fully aware of how many rpc calls are being made, as to improve software efficiency.
+
+Or maybe I'm just lazy while needlessly re-inventing the wheel idk.
 
 
 Creating a Basic script
