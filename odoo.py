@@ -12,6 +12,36 @@ class Model:
         self.env = env
         self.model = model
 
+    def call(self, ids: IdsType, method: str, *args, **kwargs):
+        """ Calls a method on selected record ids
+
+        ids: ids to call the method on
+        method: name of method to call
+        args: method args
+        kwargs: method kwargs
+        :return: same as method return
+        """
+
+        if isinstance(ids, int):
+            ids = [ids]
+
+        logger.debug(f"Call_Records ({self.model}:{ids}): {args} {kwargs}")
+
+        return self.env._exec(self.model, method, [ids] + list(args), kwargs)
+
+    def call_model(self, method: str, *args, **kwargs):
+        """ Calls a model method
+
+        method: name of method to call
+        args: method args
+        kwargs: method kwargs
+        :return: same as method return
+        """
+
+        logger.debug(f"Call_Model ({self.model}): {args} {kwargs}")
+
+        return self.env._exec(self.model, method, args, kwargs)
+
     """ Read """
 
     def search(self, domain: DomainType, offset: int = None, limit: int = None) -> List[int]:
