@@ -54,6 +54,13 @@ env['res.partner'].write([2, 3, 4], {'name': "RogueNAND"})
 # Delete record(s)
 env['res.partner'].delete(2)
 env['res.partner'].delete([2, 3, 4])
+
+
+
+# Call method
+env['res.partner'].call([2, 3], 'custom_method', arg1, arg2, kw1=5, kw2=12)
+# For methods wrapped with @api.model
+env['res.partner'].call_model('custom_method', arg1, arg2, kw1=5, kw2=12)
 ```
 
 License
