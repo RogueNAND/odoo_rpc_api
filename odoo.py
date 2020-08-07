@@ -136,7 +136,7 @@ class Model:
             raise
 
 
-class Odoo():
+class Odoo:
     """ CRUD """
 
     def __init__(self, database: str, username: str, password: str, url: str, port: int):
@@ -213,5 +213,5 @@ class Odoo():
             logger.error(f"Error in _exec(): {args}\n{e}")
             raise
 
-    def __getitem__(self, model):
+    def __getitem__(self, model: str) -> Model:
         return Model(self, model)
