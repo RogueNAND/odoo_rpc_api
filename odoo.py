@@ -35,12 +35,17 @@ class m2o(x2m):
     _type = 'm2o'
 
     def gather_ids_to_fetch(self, records: List[dict]) -> list:
-        return [records[0][self.field_name][0]]
+        ids = set()
+        for record in records:
+            if field := record[self.field_name]:
+                ids.add(field[0])
+        return list(ids)
 
     def field_to_recordset(self, records: List[dict], field_records: Dict[str, dict]):
         for record in records:
-            id = record[self.field_name][0]
-            record[self.field_name] = field_records[id]
+            if field := record[self.field_name]:
+                id = field[0]
+                record[self.field_name] = field_records[id]
         return records
 
 
