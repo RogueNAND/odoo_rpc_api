@@ -3,8 +3,48 @@ from typing import List, Tuple, Union, Dict
 
 logger = logging.getLogger('odoo_connector')
 
-DomainType = List[Tuple[str, str, any]]
-IdsType = Union[int, List[int]]
+DomainT = List[Tuple[str, str, any]]
+IdsT = Union[int, List[int]]
+
+
+class x2m:
+    _type = 'x2m'
+
+    def __init__(self, field: str, model: str, fields: List[str]):
+        self.field_name = field
+        self.model = model
+        self.fields = fields
+
+    def gather_ids_to_fetch(self, records: List[dict]) -> list:
+        ids = set()
+        for record in records:
+            ids.update(record[self.field_name])
+        return list(ids)
+
+    def field_to_recordset(self, records: List[dict], field_records: Dict[str, dict]):
+        for record in records:
+            ids = record[self.field_name]
+            record[self.field_name] = [
+                field_records[id]
+                for id in ids
+            ]
+        return records
+
+
+class m2o(x2m):
+    _type = 'm2o'
+
+    def gather_ids_to_fetch(self, records: List[dict]) -> list:
+        return [records[0][self.field_name][0]]
+
+    def field_to_recordset(self, records: List[dict], field_records: Dict[str, dict]):
+        for record in records:
+            id = record[self.field_name][0]
+            record[self.field_name] = field_records[id]
+        return records
+
+
+FieldsT = Union[List[str], x2m]
 
 
 class Model:
@@ -12,7 +52,7 @@ class Model:
         self.env = env
         self.model = model
 
-    def call(self, ids: IdsType, method: str, *args, **kwargs):
+    def call(self, ids: IdsT, method: str, *args, **kwargs):
         """ Calls a method on selected record ids
 
         :param ids: ids to call the method on
@@ -44,7 +84,7 @@ class Model:
 
     """ Read """
 
-    def search(self, domain: DomainType, offset: int = None, limit: int = None) -> List[int]:
+    def search(self, domain: DomainT, offset: int = None, limit: int = None) -> List[int]:
         """ Searches a model for specific attributes and returns ids
 
         :param domain: filter
@@ -63,7 +103,7 @@ class Model:
 
         return self.env._exec(self.model, 'search', [domain], conditions)
 
-    def browse(self, ids: IdsType, fields: List[str]) -> List[dict]:
+    def browse(self, ids: IdsT, fields: FieldsT) -> List[dict]:
         """ Reads the specified records and returns specified fields
 
         :param ids: id OR list of ids to read
@@ -76,9 +116,14 @@ class Model:
 
         logger.debug(f"Read ({self.model}): {ids}")
 
-        return self.env._exec(self.model, 'read', [ids], {'fields': fields})
+        # Grab Many-fields for post processing
+        fields, many_fields = extract_many_fields(fields)
 
-    def search_browse(self, domain: DomainType, fields: List[str], offset: int = None, limit: int = None) -> List[dict]:
+        result = self.env._exec(self.model, 'read', [ids], {'fields': fields})
+
+        return apply_many_fields(self.env, result, many_fields)
+
+    def search_browse(self, domain: DomainT, fields: FieldsT, offset: int = None, limit: int = None) -> List[dict]:
         """ Searches for records and returns a specified records
 
         :param domain: filter
@@ -88,17 +133,22 @@ class Model:
         :return: list of record dicts
         """
 
+        logger.debug(f"Search_Read ({self.model}): {domain}")
+
+        # Grab Many-fields for post processing
+        fields, many_fields = extract_many_fields(fields)
+
         fields = {'fields': fields}
         if offset:
             fields.update({'offset': offset})
         if limit:
             fields.update({'limit': limit})
 
-        logger.debug(f"Search_Read ({self.model}): {domain}")
+        result = self.env._exec(self.model, 'search_read', [domain], fields)
 
-        return self.env._exec(self.model, 'search_read', [domain], fields)
+        return apply_many_fields(self.env, result, many_fields)
 
-    def search_count(self, domain: DomainType) -> int:
+    def search_count(self, domain: DomainT) -> int:
         """ Searches a model and returns the number of matching records
 
         :param domain: filter
@@ -124,7 +174,7 @@ class Model:
 
         return self.env._exec(self.model, 'create', [fields])
 
-    def write(self, ids: IdsType, fields: Dict[str, any]) -> bool:
+    def write(self, ids: IdsT, fields: Dict[str, any]) -> bool:
         """ Updates existing records
 
         :param ids: list of ids to update
@@ -139,7 +189,7 @@ class Model:
 
         return self.env._exec(self.model, 'write', [ids, fields])
 
-    def delete(self, ids: IdsType) -> bool:
+    def delete(self, ids: IdsT) -> bool:
         """ Deletes specified ids
 
         :param ids: list of ids to delete
@@ -215,7 +265,6 @@ class Odoo:
                     raise socket.gaierror(e.errno, f"Bad url: {self.url_common}")
             # Using https on http port
             except ssl.SSLError as e:
-                print(e.reason)
                 if e.reason == 'WRONG_VERSION_NUMBER':
                     raise Exception("Bad SSL (Probably need http. Are you using https?)") from e
                 raise
@@ -245,3 +294,61 @@ class Odoo:
 
     def __getitem__(self, model: str) -> Model:
         return Model(self, model)
+
+
+def extract_many_fields(fields: FieldsT) -> Tuple[List[str], List[x2m]]:
+    """ Separate 'string' fields from 'Many' fields
+    Every 'many' field requires a call to Odoo AFTER the parent model call
+
+    EXAMPLE:
+    A call to Odoo using a 'many' field would work something like this:
+        fields_to_get = ['name', Many('partner_id', 'res.partner', ['name', 'email'])]
+        customer = odoo['sale.order'].browse(5, fields_to_get)
+    The following operations will be performed:
+        Fetch sale.order id=5 with fields 'name' and 'partner_id'
+        Fetch res.partner ids=(determined by previous fetch) with fields 'name' and 'email'
+        Merge res.partner records into the sale.order record
+
+    :param fields: list of fields
+    :return: Tuple (fields_list, many_fields_list)
+    """
+
+    many_fields = []
+    for i, field in enumerate(fields):
+        if isinstance(field, x2m):
+            # Save Many-field for post-processing
+            many_fields.append(field)
+            # Replace Many-field with string
+            fields[i] = field.field_name
+
+    return fields, many_fields
+
+
+def apply_many_fields(odoo: Odoo, fetched_records: List[dict], many_fields: List[x2m]) -> List[dict]:
+    """ fetches additional required model data
+
+    :param odoo: used to fetch new data from odoo
+    :param fetched_records: recordset to update fields
+    :param many_fields: list of 'Many' objects
+    :return: modified fetched_records
+    """
+
+    for many_field in many_fields:
+        model = many_field.model
+
+        # Gather list of ids to fetch
+        ids = many_field.gather_ids_to_fetch(fetched_records)
+
+        # Fetch record dicts
+        field_records = odoo[model].browse(ids, many_field.fields)
+
+        # Organize records into a dict (key=id)
+        field_records = {
+            record['id']: record
+            for record in field_records
+        }
+
+        # Apply field_records to each record in fetched_records
+        fetched_records = many_field.field_to_recordset(fetched_records, field_records)
+
+    return fetched_records
