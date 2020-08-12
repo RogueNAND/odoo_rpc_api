@@ -72,6 +72,47 @@ env['res.partner'].call([2, 3], 'custom_method', arg1, arg2, kw1=5, kw2=12)
 env['res.partner'].call_model('custom_method', arg1, arg2, kw1=5, kw2=12)
 ```
 
+Fetching Relational Fields
+----
+For 'browse' and 'search_browse', X2many and One2many fields only return record ids by default. You can use 'x2m' and 'm2o' to fetch detailed records.
+
+<i>(Note: every 'x2m' or 'o2m' field creates an additional call to Odoo)</i>
+```python
+from odoo import x2m, m2o
+# Fetch a Many2one field
+env['sale.order'].browse(5, ['name', m2o('partner_id', 'res.partner', ['name', 'email'])])
+"""
+[
+    {
+        'id': 5, 
+        'name': 'S00005', 
+        'partner_id': {
+            'id': 10, 
+            'name': 'Deco Addict',
+            'email': 'deco.addict82@example.com'
+        }
+    }
+]
+"""
+
+# Fetch a X2many field
+env['sale.order'].browse(5, ['name', x2m('order_line', 'sale.order.line', ['name', 'product_uom_qty'])])
+"""
+[
+    {
+        'id': 5, 
+        'name': 'S00005', 
+        'order_line': [{
+            'id': 12,
+            'name': '[FURN_8888] Office Lamp', 
+            'product_uom_qty': 1.0
+        }]
+    }
+]
+"""
+```
+
+
 License
 ----
 
