@@ -15,10 +15,10 @@ class Model:
     def call(self, ids: IdsType, method: str, *args, **kwargs):
         """ Calls a method on selected record ids
 
-        ids: ids to call the method on
-        method: name of method to call
-        args: method args
-        kwargs: method kwargs
+        :param ids: ids to call the method on
+        :param method: name of method to call
+        :param args: method args
+        :param kwargs: method kwargs
         :return: same as method return
         """
 
@@ -32,9 +32,9 @@ class Model:
     def call_model(self, method: str, *args, **kwargs):
         """ Calls a model method
 
-        method: name of method to call
-        args: method args
-        kwargs: method kwargs
+        :param method: name of method to call
+        :param args: method args
+        :param kwargs: method kwargs
         :return: same as method return
         """
 
@@ -47,9 +47,9 @@ class Model:
     def search(self, domain: DomainType, offset: int = None, limit: int = None) -> List[int]:
         """ Searches a model for specific attributes and returns ids
 
-        domain: filter
-        offset: number to offset the returned items by
-        limit: limit the number of items by a specified amount
+        :param domain: filter
+        :param offset: number to offset the returned items by
+        :param limit: limit the number of items by a specified amount
         :return: list of record ids
         """
 
@@ -66,8 +66,8 @@ class Model:
     def browse(self, ids: IdsType, fields: List[str]) -> List[dict]:
         """ Reads the specified records and returns specified fields
 
-        ids: id OR list of ids to read
-        fields: list of fields to return
+        :param ids: id OR list of ids to read
+        :param fields: list of fields to return
         :return: list of record dicts
         """
 
@@ -81,10 +81,10 @@ class Model:
     def search_browse(self, domain: DomainType, fields: List[str], offset: int = None, limit: int = None) -> List[dict]:
         """ Searches for records and returns a specified records
 
-        domain: filter
-        fields: list of fields to return
-        offset: number to offset the returned items by
-        limit: limit the number of items by a specified amount
+        :param domain: filter
+        :param fields: list of fields to return
+        :param offset: number to offset the returned items by
+        :param limit: limit the number of items by a specified amount
         :return: list of record dicts
         """
 
@@ -101,7 +101,7 @@ class Model:
     def search_count(self, domain: DomainType) -> int:
         """ Searches a model and returns the number of matching records
 
-        domain: filter
+        :param domain: filter
         :return: number of matching records
         """
 
@@ -114,7 +114,7 @@ class Model:
     def create(self, fields: Dict[str, any]) -> int:
         """ Creates a new record
 
-        fields: field values to set in new record
+        :param fields: field values to set in new record
             e.g.
                 {'name': "Item 1", 'description': "Test 1"}
         :return: id of new record
@@ -127,8 +127,8 @@ class Model:
     def write(self, ids: IdsType, fields: Dict[str, any]) -> bool:
         """ Updates existing records
 
-        ids: list of ids to update
-        fields: dict of fields and their values
+        :param ids: list of ids to update
+        :param fields: dict of fields and their values
         :return: True if fields were written successfully, otherwise False
         """
 
@@ -142,7 +142,7 @@ class Model:
     def delete(self, ids: IdsType) -> bool:
         """ Deletes specified ids
 
-        ids: list of ids to delete
+        :param ids: list of ids to delete
         :return: True if record was deleted successfully, otherwise False
         """
 
