@@ -72,7 +72,8 @@ class Model:
 
         logger.debug(f"Call_Records ({self.model}:{ids}): {args} {kwargs}")
 
-        return self.env._exec(self.model, method, [ids] + list(args), kwargs)
+        if self.env._perm_call:
+            return self.env._exec(self.model, method, [ids] + list(args), kwargs)
 
     def call_model(self, method: str, *args, **kwargs):
         """ Calls a model method
@@ -85,7 +86,8 @@ class Model:
 
         logger.debug(f"Call_Model ({self.model}): {args} {kwargs}")
 
-        return self.env._exec(self.model, method, args, kwargs)
+        if self.env._perm_call:
+            return self.env._exec(self.model, method, args, kwargs)
 
     """ Read """
 
@@ -177,7 +179,8 @@ class Model:
 
         logger.info(f"Create ({self.model}): {fields}")
 
-        return self.env._exec(self.model, 'create', [fields])
+        if self.env._perm_write:
+            return self.env._exec(self.model, 'create', [fields])
 
     def write(self, ids: IdsT, fields: Dict[str, any]) -> bool:
         """ Updates existing records
@@ -192,7 +195,8 @@ class Model:
 
         logger.info(f"Write ({self.model}): {ids} - {fields}")
 
-        return self.env._exec(self.model, 'write', [ids, fields])
+        if self.env._perm_write:
+            return self.env._exec(self.model, 'write', [ids, fields])
 
     def delete(self, ids: IdsT) -> bool:
         """ Deletes specified ids
@@ -207,7 +211,8 @@ class Model:
         logger.info(f"Unlink ({self.model}): {ids}")
 
         try:
-            return self.env._exec(self.model, 'unlink', ids) or False
+            if self.env._perm_write:
+                return self.env._exec(self.model, 'unlink', ids) or False
         # Return false if id doesn't exist
         except xmlrpc.client.Fault as e:
             # Record doesn't exist
@@ -224,7 +229,7 @@ class Model:
 class Odoo:
     """ CRUD """
 
-    def __init__(self, database: str, username: str, password: str, url: str, port: int):
+    def __init__(self, database: str, username: str, password: str, url: str, port: int, perm_write=True, perm_call=True):
         """ Create connection """
 
         self.db = database
@@ -235,6 +240,19 @@ class Odoo:
         self.url_models = f"{url}:{port}/xmlrpc/2/object"
         self.odoo_common = xmlrpc.client.ServerProxy(self.url_common)
         self.odoo_models = xmlrpc.client.ServerProxy(self.url_models)
+
+        if perm_write:
+            logger.warning(f"Write permissions ENABLED for {database}")
+        else:
+            logger.warning(f"Write permissions DISABLED for {database}")
+
+        if perm_call:
+            logger.warning(f"Call permissions ENABLED for {database}")
+        else:
+            logger.warning(f"Call permissions DISABLED for {database}")
+
+        self._perm_write = perm_write
+        self._perm_call = perm_call
 
         self._connect()
 
